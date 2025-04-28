@@ -237,4 +237,3 @@ local function processScript(url, userScript)
     return encryptedScript
 end
 
-local userScript =
