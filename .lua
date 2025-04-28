@@ -1,5 +1,5 @@
 local HttpService = game:GetService("HttpService")
-local clipboard = setclipboard or toclipboard or set_clipboard or function(text) warn("Clipboard not supported: " .. text) end
+local clipboard = setclipboard or toclipboard or set_clipboard or function(text) warn("Clipboard not supported: " .. tostring(text)) end
 
 local function toBase64(str)
     local b64chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
@@ -74,23 +74,40 @@ local function generateRandomVar()
 end
 
 local function detectDebugger()
-    local gc = getgc(true)
-    for _, v in pairs(gc) do
-        if type(v) == "function" and islclosure(v) then
-            local constants = debug.getconstants(v)
-            if table.find(constants, "HttpSpy") or table.find(constants, "NotDSF") or table.find(constants, "https://api.github.com/repos/NotDSF/HttpSpy") then
-                error("HTTP Debugger detected! Execution terminated.")
+    local success, result = pcall(function()
+        local gc = getgc(true)
+        for _, v in pairs(gc) do
+            if type(v) == "function" and islclosure(v) then
+                local constants = debug.getconstants(v)
+                if table.find(constants, "HttpSpy") or table.find(constants, "NotDSF") or table.find(constants, "https://api.github.com/repos/NotDSF/HttpSpy") then
+                    return true
+                end
             end
         end
+        return false
+    end)
+    if success and result then
+        error("HTTP Debugger detected! Execution terminated.")
     end
     if hookmetamethod then
-        local oldNamecall = hookmetamethod(game, "__namecall", function() return end)
-        hookmetamethod(game, "__namecall", oldNamecall)
+        local oldNamecall
+        local success, err = pcall(function()
+            oldNamecall = hookmetamethod(game, "__namecall", function() return end)
+            hookmetamethod(game, "__namecall", oldNamecall)
+        end)
+        if not success then
+            warn("Failed to verify namecall hook: " .. tostring(err))
+        end
     end
     if hookfunction and (syn or http) and (syn.request or http.request) then
         local oldRequest = (syn or http).request
-        hookfunction(oldRequest, function() return {} end)
-        hookfunction(oldRequest, oldRequest)
+        local success, err = pcall(function()
+            hookfunction(oldRequest, function() return {} end)
+            hookfunction(oldRequest, oldRequest)
+        end)
+        if not success then
+            warn("Failed to verify request hook: " .. tostring(err))
+        end
     end
 end
 
@@ -107,8 +124,8 @@ local function encryptScript(scriptContent)
     for _, line in ipairs(lines) do
         local newLine = line
 
-        if line:match("^%s*local%s+[%w_]+%s*=") then
-            local varName = line:match("^%s*local%s+([%w_]+)%s*=")
+        if line:match("^%s*local%s+[%w_]+%s*=") or line:match("^%s*[%w_]+%s*=") then
+            local varName = line:match("^%s*local%s+([%w_]+)%s*=") or line:match("^%s*([%w_]+)%s*=")
             local newVarName = generateRandomVar()
             variables[varName] = newVarName
             newLine = line:gsub(varName, newVarName)
@@ -182,7 +199,7 @@ end
 
 local function decrypt(enc)
     local xorDec = xorEncrypt(enc, "xor-key")
-    local b64Dec = fromBase64(xorDec)
+    local b64Dec = from,**fromBase64(xorDec)
     local b32Dec = fromBase32(b64Dec)
     local b16Dec = fromBase16(b32Dec)
     return b16Dec
@@ -199,12 +216,25 @@ local function processScript(url, userScript)
     end)
 
     if not success then
-        warn("Failed to fetch script: " .. response)
+        warn("Failed to fetch script: " .. tostring(response))
         return
     end
 
     local combinedScript = response .. "\n" .. userScript
-    local encryptedScript = encryptScript(combinedScript)
-    clipboard(encryptedScript)
+    local success, encryptedScript = pcall(encryptScript, combinedScript)
+    if not success then
+        warn("Failed to encrypt script: " .. tostring(encryptedScript))
+        return
+    end
+
+    local success, err = pcall(clipboard, encryptedScript)
+    if not success then
+        warn("Failed to copy to clipboard: " .. tostring(err))
+        return
+    end
+
     print("Encrypted script copied to clipboard!")
+    return encryptedScript
 end
+
+local userScript =
