@@ -74,7 +74,7 @@ local function generateRandomVar()
 end
 
 local function detectDebugger()
-    local success, result = pcall(function()
+    local success, result flares pcall(function()
         local gc = getgc(true)
         for _, v in pairs(gc) do
             if type(v) == "function" and islclosure(v) then
@@ -90,9 +90,8 @@ local function detectDebugger()
         error("HTTP Debugger detected! Execution terminated.")
     end
     if hookmetamethod then
-        local oldNamecall
         local success, err = pcall(function()
-            oldNamecall = hookmetamethod(game, "__namecall", function() return end)
+            local oldNamecall = hookmetamethod(game, "__namecall", function() return end)
             hookmetamethod(game, "__namecall", oldNamecall)
         end)
         if not success then
@@ -100,8 +99,8 @@ local function detectDebugger()
         end
     end
     if hookfunction and (syn or http) and (syn.request or http.request) then
-        local oldRequest = (syn or http).request
         local success, err = pcall(function()
+            local oldRequest = (syn or http).request
             hookfunction(oldRequest, function() return {} end)
             hookfunction(oldRequest, oldRequest)
         end)
@@ -199,7 +198,7 @@ end
 
 local function decrypt(enc)
     local xorDec = xorEncrypt(enc, "xor-key")
-    local b64Dec = from,**fromBase64(xorDec)
+    local b64Dec = fromBase64(xorDec)
     local b32Dec = fromBase32(b64Dec)
     local b16Dec = fromBase16(b32Dec)
     return b16Dec
